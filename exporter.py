@@ -2,8 +2,9 @@
 exporter.py — Fill the Arabic/English supplier Excel template and build CSV.
 
 Excel column mapping (sheet "Supplier Template", data starts at row 3):
-  A(1) auto-number | B(2) arabic_name | C(3) english_name | G(7) emirate
-  K(11) bank_name_ar | M(13) account_number | N(14) iban | O(15) account title
+  A(1) left blank (Supplier Number — per client) | B(2) arabic_name
+  C(3) english_name | G(7) emirate | K(11) bank_name_ar
+  M(13) account_number | N(14) iban | O(15) account title
 """
 
 import copy
@@ -112,7 +113,7 @@ def export_to_excel(records: list, template_bytes: bytes, append: bool = True) -
         start = _next_empty_row(ws) if append else START_ROW
         for i, rec in enumerate(records):
             row = start + i
-            ws.cell(row=row, column=1, value=str(row - START_ROW + 1))   # 1-based running no.
+            # Column A (رقم المورد / Supplier Number) left blank — per client request.
             for col, key in COLUMN_MAP:
                 value = rec.get(key, "")
                 if col == 7:                         # snap emirate to dropdown value
