@@ -1,6 +1,6 @@
-# DocFill — UAE Supplier Document Extractor
+# DocFill — AI Supplier Document Extractor
 
-Streamlit web app: upload UAE supplier onboarding PDFs (IBAN letter + Emirates ID),
+Streamlit web app: upload AI supplier onboarding PDFs (IBAN letter + Emirates ID),
 **Gemini Vision** extracts every field, you review/edit, then export to the
 pre-formatted Arabic/English supplier Excel template (`قالب تحديث`).
 
