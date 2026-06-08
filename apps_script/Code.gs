@@ -18,7 +18,7 @@
  * (cloud + local). No service account or OAuth keys needed.
  */
 
-const TOKEN = 'CHANGE-ME-to-a-long-random-string';
+const TOKEN = 'aalsfhoaiqowfihqwiohoiqw';
 const SHEET_NAME = 'History';
 const HEADERS = [
   'id', 'ts', 'batch_id', 'source_file', 'english_name', 'arabic_name', 'iban',
