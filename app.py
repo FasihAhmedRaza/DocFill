@@ -129,10 +129,8 @@ section[data-testid="stSidebar"] hr{ border-color:#1a2540; }
 /* Right-to-left rendering for Arabic-valued inputs */
 .stTextInput input[aria-label*="Arabic"]{ direction:rtl; text-align:right; }
 div[data-testid="stTextInput"] label p{ font-size:11px !important; font-weight:500 !important; color:var(--txt-2) !important; }
-.iban-good{ font-size:11px; color:#15803d; background:var(--ok-bg); border-radius:6px;
-  padding:5px 10px; display:inline-flex; gap:5px; align-items:center; font-weight:500; }
-.iban-bad{ font-size:11px; color:#b91c1c; background:#fef2f2; border-radius:6px;
-  padding:5px 10px; display:inline-flex; gap:5px; align-items:center; font-weight:500; }
+.iban-note{ font-size:10.5px; color:var(--txt-3); display:inline-flex; gap:5px;
+  align-items:center; margin-top:2px; }
 
 /* ---------- EXPANDER AS CLIENT CARD ---------- */
 div[data-testid="stExpander"]{ border:1px solid var(--border) !important; border-radius:14px !important;
@@ -536,9 +534,8 @@ for idx, (fname, rec) in enumerate(records.items()):
     name = rec.get("english_name") or fname
     bank = rec.get("bank_name_en") or rec.get("bank_name_ar") or "—"
     emirate = rec.get("emirate") or "—"
-    iban_ok = validate_iban(rec.get("iban", ""))
     n_ok = count_ok(rec)
-    badge = f"✓ {n_ok} fields · {'IBAN valid' if iban_ok else 'IBAN check'}"
+    badge = f"✓ {n_ok} fields"
 
     with st.expander(f"  {initials(name)}   {name}   —   {fname} · {bank} · {emirate}   ·   {badge}", expanded=True):
         col_status, col_form = st.columns([1, 2.4], gap="medium")
@@ -573,12 +570,12 @@ for idx, (fname, rec) in enumerate(records.items()):
         rec["date_of_birth"]  = a.text_input("Date of birth · Gemini", rec.get("date_of_birth", ""), key=f"dob_{idx}")
         rec["id_expiry"]      = b.text_input("ID expiry · Gemini", rec.get("id_expiry", ""), key=f"exp_{idx}")
 
-        # live IBAN validation
+        # live IBAN check — tiny neutral note only (no alarming colours)
         if rec["iban"]:
             if validate_iban(rec["iban"]):
-                col_form.markdown('<span class="iban-good">🛡 IBAN checksum valid (MOD-97)</span>', unsafe_allow_html=True)
+                col_form.markdown('<span class="iban-note">✓ IBAN verified</span>', unsafe_allow_html=True)
             else:
-                col_form.markdown('<span class="iban-bad">⚠ IBAN checksum invalid — please check</span>', unsafe_allow_html=True)
+                col_form.markdown('<span class="iban-note">ⓘ Please verify this IBAN against the document</span>', unsafe_allow_html=True)
 
         if col_form.button("🗑 Remove this record", key=f"del_{idx}"):
             del st.session_state.records[fname]
@@ -663,7 +660,7 @@ if recs:
             f'<td dir="rtl">{html.escape(r.get("bank_name_ar") or "—")}</td>'
             f'<td class="mono">{html.escape(r.get("swift") or "—")}</td>'
             f'<td>{html.escape(r.get("nationality") or "—")}</td>'
-            f'<td>{"<span class=pill-ok>✓ valid</span>" if valid else "<span class=pill-no>invalid</span>"}</td>'
+            f'<td>{"<span class=pill-ok>✓ valid</span>" if valid else "<span style=\'color:var(--txt-3);font-size:10px\'>verify</span>"}</td>'
             "</tr>"
         )
     st.markdown(
