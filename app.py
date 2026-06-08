@@ -30,6 +30,7 @@ DEFAULT_TEMPLATE_PATH = os.path.join(
 from validator import (
     count_ok,
     field_status,
+    iban_diagnosis,
     is_export_ready,
     normalize_iban,
     validate_iban,
@@ -570,12 +571,13 @@ for idx, (fname, rec) in enumerate(records.items()):
         rec["date_of_birth"]  = a.text_input("Date of birth · Gemini", rec.get("date_of_birth", ""), key=f"dob_{idx}")
         rec["id_expiry"]      = b.text_input("ID expiry · Gemini", rec.get("id_expiry", ""), key=f"exp_{idx}")
 
-        # live IBAN check — tiny neutral note only (no alarming colours)
+        # live IBAN check — tiny neutral note that says WHAT to fix
         if rec["iban"]:
-            if validate_iban(rec["iban"]):
-                col_form.markdown('<span class="iban-note">✓ IBAN verified</span>', unsafe_allow_html=True)
-            else:
-                col_form.markdown('<span class="iban-note">ⓘ Please verify this IBAN against the document</span>', unsafe_allow_html=True)
+            ok, hint = iban_diagnosis(rec["iban"])
+            col_form.markdown(
+                f'<span class="iban-note">{"✓" if ok else "ⓘ"} {html.escape(hint)}</span>',
+                unsafe_allow_html=True,
+            )
 
         if col_form.button("🗑 Remove this record", key=f"del_{idx}"):
             del st.session_state.records[fname]

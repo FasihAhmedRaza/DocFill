@@ -50,6 +50,29 @@ def validate_iban(iban: str) -> bool:
         return False
 
 
+UAE_IBAN_LEN = 23   # UAE IBAN = AE + 2 check digits + 21 digits
+
+
+def iban_diagnosis(iban: str) -> tuple:
+    """Return (is_valid, hint) — a short human reason when an IBAN fails,
+    so the user knows WHAT to fix (missing digit, extra digit, etc.)."""
+    s = normalize_iban(iban)
+    if not s:
+        return False, ""
+    if validate_iban(s):
+        return True, "IBAN verified"
+    if not s.startswith("AE"):
+        return False, "IBAN should start with “AE” (UAE) — recheck"
+    if not s[2:].isalnum():
+        return False, "IBAN has an invalid character — recheck"
+    n = len(s)
+    if n < UAE_IBAN_LEN:
+        return False, f"IBAN looks short — {n} characters (should be {UAE_IBAN_LEN}), a digit may be missing. Recheck."
+    if n > UAE_IBAN_LEN:
+        return False, f"IBAN looks long — {n} characters (should be {UAE_IBAN_LEN}), there may be an extra digit. Recheck."
+    return False, "IBAN length is fine but the check digits don’t match — a digit may be wrong or swapped. Recheck."
+
+
 def validate_swift(swift: str) -> bool:
     """SWIFT/BIC must be 8 or 11 alphanumerics (AAAABBCC[XXX])."""
     if not swift:
