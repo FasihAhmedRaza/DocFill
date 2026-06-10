@@ -173,7 +173,7 @@ FIELD_META = [
     ("iban", "IBAN — verified", False),
     ("account_number", "Account number", False),
     ("swift", "SWIFT code", False),
-    ("bank_name_ar", "Bank (Arabic)", False),
+    ("bank_name", "Bank name", False),
     ("nationality", "Nationality", True),
     ("emirates_id", "Emirates ID", True),
     ("date_of_birth", "Date of birth", True),
@@ -370,7 +370,7 @@ def render_history():
             st.rerun()
 
     # table
-    show_cols = ["ts", "english_name", "arabic_name", "iban", "bank_name_ar",
+    show_cols = ["ts", "english_name", "arabic_name", "iban", "bank_name_en",
                  "emirate", "nationality", "emirates_id", "source_file", "iban_valid"]
     df = pd.DataFrame(rows)
     for c in show_cols:
@@ -378,7 +378,7 @@ def render_history():
             df[c] = ""
     df = df[show_cols].rename(columns={
         "ts": "Saved at", "english_name": "Name (EN)", "arabic_name": "Name (AR)",
-        "iban": "IBAN", "bank_name_ar": "Bank (AR)", "emirate": "Emirate",
+        "iban": "IBAN", "bank_name_en": "Bank", "emirate": "Emirate",
         "nationality": "Nationality", "emirates_id": "Emirates ID",
         "source_file": "File", "iban_valid": "IBAN ✓",
     })
@@ -545,7 +545,10 @@ for idx, (fname, rec) in enumerate(records.items()):
         stat = field_status(rec)
         rows = ""
         for key, label, gemini_only in FIELD_META:
-            ok = stat.get(key) == "ok"
+            if key == "bank_name":          # OK if either English or Arabic bank name present
+                ok = bool(rec.get("bank_name_en") or rec.get("bank_name_ar"))
+            else:
+                ok = stat.get(key) == "ok"
             ic = '<span class="ic-ok">✓</span>' if ok else '<span class="ic-wa">!</span>'
             dot = '<span class="gem-dot"></span>' if gemini_only else ""
             rows += f'<div class="srow">{ic} {html.escape(label)} {dot}</div>'
@@ -559,17 +562,19 @@ for idx, (fname, rec) in enumerate(records.items()):
         col_form.markdown('<div class="form-title">Review &amp; edit</div>', unsafe_allow_html=True)
         a, b = col_form.columns(2)
         rec["english_name"]   = a.text_input("English name", rec.get("english_name", ""), key=f"en_{idx}")
-        rec["arabic_name"]    = b.text_input("Arabic name · Gemini", rec.get("arabic_name", ""), key=f"ar_{idx}")
+        rec["arabic_name"]    = b.text_input("Arabic name ", rec.get("arabic_name", ""), key=f"ar_{idx}")
         rec["iban"]           = a.text_input("IBAN", rec.get("iban", ""), key=f"iban_{idx}")
         rec["account_number"] = b.text_input("Account number", rec.get("account_number", ""), key=f"acct_{idx}")
-        rec["swift"]          = a.text_input("SWIFT code", rec.get("swift", ""), key=f"swift_{idx}")
+        rec["bank_name_en"]   = a.text_input("Bank (English)", rec.get("bank_name_en", ""), key=f"bken_{idx}")
         rec["bank_name_ar"]   = b.text_input("Bank (Arabic)", rec.get("bank_name_ar", ""), key=f"bkar_{idx}")
-        rec["nationality"]    = a.text_input("Nationality · Gemini", rec.get("nationality", ""), key=f"nat_{idx}")
+        rec["swift"]          = a.text_input("SWIFT code", rec.get("swift", ""), key=f"swift_{idx}")
+        rec["sort_code"]      = b.text_input("Sort code", rec.get("sort_code", ""), key=f"sort_{idx}")
+        rec["nationality"]    = a.text_input("Nationality ", rec.get("nationality", ""), key=f"nat_{idx}")
         rec["emirate"]        = b.text_input("Emirate", rec.get("emirate", ""), key=f"emir_{idx}")
-        rec["emirates_id"]    = a.text_input("Emirates ID · Gemini", rec.get("emirates_id", ""), key=f"eid_{idx}")
+        rec["emirates_id"]    = a.text_input("Emirates ID ", rec.get("emirates_id", ""), key=f"eid_{idx}")
         rec["currency"]       = b.text_input("Currency", rec.get("currency", "AED"), key=f"curr_{idx}")
-        rec["date_of_birth"]  = a.text_input("Date of birth · Gemini", rec.get("date_of_birth", ""), key=f"dob_{idx}")
-        rec["id_expiry"]      = b.text_input("ID expiry · Gemini", rec.get("id_expiry", ""), key=f"exp_{idx}")
+        rec["date_of_birth"]  = a.text_input("Date of birth ", rec.get("date_of_birth", ""), key=f"dob_{idx}")
+        rec["id_expiry"]      = b.text_input("ID expiry ", rec.get("id_expiry", ""), key=f"exp_{idx}")
 
         # live IBAN check — tiny neutral note that says WHAT to fix
         if rec["iban"]:
@@ -659,7 +664,7 @@ if recs:
             "<tr>"
             f'<td style="font-weight:500">{html.escape(r.get("english_name") or "—")}</td>'
             f'<td class="mono">{html.escape(short_iban(r.get("iban", "")))}</td>'
-            f'<td dir="rtl">{html.escape(r.get("bank_name_ar") or "—")}</td>'
+            f'<td>{html.escape(r.get("bank_name_en") or r.get("bank_name_ar") or "—")}</td>'
             f'<td class="mono">{html.escape(r.get("swift") or "—")}</td>'
             f'<td>{html.escape(r.get("nationality") or "—")}</td>'
             f'<td>{"<span class=pill-ok>✓ valid</span>" if valid else "<span style=\'color:var(--txt-3);font-size:10px\'>verify</span>"}</td>'
@@ -671,7 +676,7 @@ if recs:
             <span class="section-title" style="margin:0">All records — {len(export_list)} client{'s' if len(export_list)!=1 else ''}</span>
             <span class="badge b-green">Export ready</span></div>
           <table class="rec-tbl">
-            <tr><th>Client name</th><th>IBAN</th><th>Bank (Arabic)</th><th>SWIFT</th><th>Nationality</th><th>Status</th></tr>
+            <tr><th>Client name</th><th>IBAN</th><th>Bank</th><th>SWIFT</th><th>Nationality</th><th>Status</th></tr>
             {body}
           </table></div>""",
         unsafe_allow_html=True,
