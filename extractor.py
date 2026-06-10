@@ -38,6 +38,8 @@ Return ONLY a valid JSON object — no markdown, no backticks, no extra text.
   "iban":            "IBAN — no spaces (e.g. AE190030013056648920001)",
   "account_number":  "Account number digits only",
   "swift":           "SWIFT/BIC code",
+  "sort_code":       "Bank sort code if visible (else null)",
+  "branch":          "Bank branch name if visible (else null)",
   "currency":        "AED / USD / EUR",
   "bank_name_en":    "Bank name in English",
   "bank_name_ar":    "Bank name in Arabic",
@@ -56,8 +58,8 @@ Rules:
 
 FIELDS = [
     "english_name", "arabic_name", "iban", "account_number", "swift",
-    "currency", "bank_name_en", "bank_name_ar", "nationality",
-    "emirates_id", "date_of_birth", "id_expiry", "emirate",
+    "sort_code", "branch", "currency", "bank_name_en", "bank_name_ar",
+    "nationality", "emirates_id", "date_of_birth", "id_expiry", "emirate",
 ]
 
 _RETRYABLE = ("503", "429", "UNAVAILABLE", "RESOURCE_EXHAUSTED")
