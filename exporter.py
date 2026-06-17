@@ -111,7 +111,11 @@ def _match_field(header) -> str:
 def _value_for(field: str, rec: dict, header_text: str) -> str:
     """Resolve the cell value for a mapped field."""
     if field == "bank_name":
-        # Always prefer the English bank name; fall back to Arabic only if missing.
+        # Hybrid: match the column's language, fall back to the other if missing.
+        #   Arabic column  → Arabic name, else English
+        #   English column → English name, else Arabic
+        if ARABIC_RE.search(header_text or ""):
+            return rec.get("bank_name_ar") or rec.get("bank_name_en") or ""
         return rec.get("bank_name_en") or rec.get("bank_name_ar") or ""
     if field == "emirate":
         return canonical_emirate(rec.get("emirate", ""))
@@ -237,7 +241,10 @@ def export_to_excel(records: list, template_bytes: bytes, append: bool = True) -
             first_data = layout["header_rows"][-1] + 1
             start = layout["data_start"] if append else first_data
         else:                                           # legacy fixed layout
-            mappings = [(c, k, "") for c, k in COLUMN_MAP]
+            # In the positional UAE template, col 11 (bank) is the Arabic column,
+            # so hint Arabic there to keep the hybrid language-match correct.
+            _hint = {"bank_name": "اسم البنك"}
+            mappings = [(c, k, _hint.get(k, "")) for c, k in COLUMN_MAP]
             first_data = START_ROW
             row = START_ROW
             while any(ws.cell(row=row, column=cc).value not in (None, "") for cc in (2, 3)):
