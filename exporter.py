@@ -111,12 +111,13 @@ def _match_field(header) -> str:
 def _value_for(field: str, rec: dict, header_text: str) -> str:
     """Resolve the cell value for a mapped field."""
     if field == "bank_name":
-        # Hybrid: match the column's language, fall back to the other if missing.
-        #   Arabic column  → Arabic name, else English
-        #   English column → English name, else Arabic
-        if ARABIC_RE.search(header_text or ""):
-            return rec.get("bank_name_ar") or rec.get("bank_name_en") or ""
-        return rec.get("bank_name_en") or rec.get("bank_name_ar") or ""
+        # Hybrid: if both names exist, include BOTH (column-language first);
+        # otherwise use whichever one is available.
+        en = (rec.get("bank_name_en") or "").strip()
+        ar = (rec.get("bank_name_ar") or "").strip()
+        if en and ar:
+            return f"{ar} - {en}" if ARABIC_RE.search(header_text or "") else f"{en} - {ar}"
+        return en or ar or ""
     if field == "emirate":
         return canonical_emirate(rec.get("emirate", ""))
     return rec.get(field, "") or ""
