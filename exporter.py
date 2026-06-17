@@ -21,6 +21,7 @@ import warnings
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment
 from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.worksheet.worksheet import Worksheet
 
 from validator import canonical_emirate
 
@@ -171,11 +172,11 @@ def _detect_layout(ws, max_scan: int = 10):
     return {"mappings": mappings, "data_start": data_start, "header_rows": header_rows}
 
 
-def _pick_sheet(wb):
+def _pick_sheet(wb) -> Worksheet:
     """Choose the data sheet — the named template, else the best-matching sheet."""
     if SHEET_NAME in wb.sheetnames:
         return wb[SHEET_NAME]
-    best, best_n = wb.active, -1
+    best, best_n = wb.worksheets[0], -1     # always a real sheet (never None)
     for ws in wb.worksheets:
         layout = _detect_layout(ws)
         n = len(layout["mappings"]) if layout else 0
