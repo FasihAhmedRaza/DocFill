@@ -30,7 +30,7 @@ START_ROW = 3                       # legacy fallback data row
 # Legacy fixed map — only used if header auto-detection finds nothing.
 COLUMN_MAP = [
     (2, "arabic_name"), (3, "english_name"), (7, "emirate"),
-    (11, "bank_name_ar"), (13, "account_number"), (14, "iban"), (15, "english_name"),
+    (11, "bank_name"), (13, "account_number"), (14, "iban"), (15, "english_name"),
 ]
 
 # UAE-template dropdowns openpyxl drops on save (re-attached only for that sheet).
@@ -111,8 +111,7 @@ def _match_field(header) -> str:
 def _value_for(field: str, rec: dict, header_text: str) -> str:
     """Resolve the cell value for a mapped field."""
     if field == "bank_name":
-        if ARABIC_RE.search(header_text or ""):
-            return rec.get("bank_name_ar") or rec.get("bank_name_en") or ""
+        # Always prefer the English bank name; fall back to Arabic only if missing.
         return rec.get("bank_name_en") or rec.get("bank_name_ar") or ""
     if field == "emirate":
         return canonical_emirate(rec.get("emirate", ""))
