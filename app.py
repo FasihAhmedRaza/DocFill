@@ -13,12 +13,14 @@ Key:   .streamlit/secrets.toml  →  GEMINI_API_KEY = "..."
 
 import html
 import os
+import traceback
 
 import pandas as pd
 import streamlit as st
 
 import history
-from extractor import GEMINI_MODEL, blank_record, extract_with_gemini, pdf_to_images
+from extractor import (GEMINI_MODEL, blank_record, extract_with_gemini,
+                       pdf_to_images, test_api_key)
 from exporter import existing_record_count, export_to_excel
 
 history.init_db()
@@ -188,6 +190,8 @@ FIELD_META = [
 # ══════════════════════════════════════════════════════════════════════════
 if "records" not in st.session_state:
     st.session_state.records = {}          # filename -> record dict
+if "extract_errors" not in st.session_state:
+    st.session_state.extract_errors = []   # survives the st.rerun() after a batch
 
 
 def secret_key() -> str:
@@ -225,9 +229,16 @@ with st.sidebar:
     # there is no manual key entry in the UI.
     if secret_key():
         st.markdown(
-            f'<div class="sb-ok">✓ AI connection Successful</div>',
+            '<div class="sb-ok">✓ API key loaded</div>',
             unsafe_allow_html=True,
         )
+        if st.button("Test AI connection", use_container_width=True):
+            with st.spinner("Calling the API…"):
+                ok, msg = test_api_key(secret_key())
+            if ok:
+                st.success(msg)
+            else:
+                st.error(msg)
     else:
         st.markdown(
             '<div class="sb-warn">⚠ No API key in secrets.toml — set API_KEY</div>',
@@ -442,6 +453,7 @@ if uploaded:
         if st.button("🗑 Clear all", use_container_width=True,
                      disabled=not st.session_state.records):
             st.session_state.records = {}
+            st.session_state.extract_errors = []
             st.rerun()
     with b3:
         done = len(st.session_state.records)
@@ -456,24 +468,38 @@ if extract_clicked and pending:
     if not api_key:
         st.error("⚠️ No API key — set GEMINI_API_KEY in .streamlit/secrets.toml (or Streamlit Cloud secrets).")
     else:
+        st.session_state.extract_errors = []
         prog = st.progress(0.0, text="Starting…")
         for i, pdf in enumerate(pending, start=1):
             prog.progress((i - 1) / len(pending), text=f"Reading {pdf.name}  ({i}/{len(pending)})…")
             try:
+                pdf.seek(0)                       # widget keeps the handle across reruns
                 images = pdf_to_images(pdf.read())
             except Exception as e:
-                st.error(f"Could not open **{pdf.name}** — invalid PDF? ({e})")
+                st.session_state.extract_errors.append(
+                    (pdf.name, "Could not open the PDF", f"{type(e).__name__}: {e}",
+                     traceback.format_exc()))
                 continue
             try:
                 rec = extract_with_gemini(images, api_key)
             except Exception as e:
-                st.warning(f"AI extraction failed for **{pdf.name}** ({e}). Fill fields manually below.")
+                st.session_state.extract_errors.append(
+                    (pdf.name, "AI extraction failed", f"{type(e).__name__}: {e}",
+                     traceback.format_exc()))
                 rec = blank_record()
             rec["source_file"] = pdf.name
             st.session_state.records[pdf.name] = rec
         prog.progress(1.0, text=f"Done — {len(pending)} file(s) processed")
         prog.empty()
         st.rerun()
+
+# ── Errors from the last batch (rendered after the rerun, so they stay put) ─
+if st.session_state.extract_errors:
+    for name, headline, detail, tb in st.session_state.extract_errors:
+        st.error(f"**{name}** — {headline}: {detail}")
+        with st.expander(f"Technical details — {name}"):
+            st.code(tb, language="text")
+    st.caption("Fields below are blank because extraction failed — the message above is the reason.")
 
 
 # ══════════════════════════════════════════════════════════════════════════

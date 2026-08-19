@@ -100,6 +100,41 @@ def _parse_json(raw: str) -> dict:
         raise
 
 
+# ── Response handling ─────────────────────────────────────────────────────
+class EmptyResponse(RuntimeError):
+    """Model answered with no usable text (safety block, token limit, etc.)."""
+
+
+def _response_text(response, model_name: str) -> str:
+    """Return the model's text, or raise EmptyResponse explaining why it is empty."""
+    text = getattr(response, "text", None)
+    if text and text.strip():
+        return text
+
+    fb = getattr(response, "prompt_feedback", None)
+    if fb is not None and getattr(fb, "block_reason", None):
+        reason = f"prompt blocked ({fb.block_reason})"
+    else:
+        candidates = getattr(response, "candidates", None) or []
+        if not candidates:
+            reason = "no candidates returned"
+        else:
+            finish = getattr(candidates[0], "finish_reason", None)
+            reason = f"finish_reason={finish}" if finish else "empty response body"
+    raise EmptyResponse(f"{model_name} returned no text — {reason}")
+
+
+def test_api_key(api_key: str) -> tuple:
+    """Real round-trip to the API. Returns (ok: bool, message: str)."""
+    try:
+        from google import genai
+        client = genai.Client(api_key=api_key)
+        resp = client.models.generate_content(model=MODELS_FALLBACK[0], contents="Reply with OK")
+        return True, f"{MODELS_FALLBACK[0]} responded: {(resp.text or '').strip()[:40] or '(empty)'}"
+    except Exception as exc:
+        return False, f"{type(exc).__name__}: {exc}"
+
+
 # ── Gemini call with model fallback + retry/backoff ───────────────────────
 def extract_with_gemini(images: list, api_key: str) -> dict:
     """Send all page images to Gemini Vision → normalized field dict.
@@ -116,23 +151,33 @@ def extract_with_gemini(images: list, api_key: str) -> dict:
     for img in images:
         contents.append(types.Part.from_bytes(data=_pil_to_png_bytes(img), mime_type="image/png"))
 
+    config = types.GenerateContentConfig(response_mime_type="application/json")
+
     last_exc = None
-    for model_idx, model_name in enumerate(MODELS_FALLBACK):
+    for model_name in MODELS_FALLBACK:
         for attempt in range(3):
             try:
-                response = client.models.generate_content(model=model_name, contents=contents)
-                return _normalize(_parse_json(response.text))
+                response = client.models.generate_content(
+                    model=model_name, contents=contents, config=config
+                )
+                return _normalize(_parse_json(_response_text(response, model_name)))
+            except EmptyResponse as exc:
+                last_exc = exc
+                break                              # no point retrying → next model
+            except json.JSONDecodeError as exc:
+                last_exc = RuntimeError(f"{model_name} did not return JSON: {exc}")
+                break                              # next model
             except Exception as exc:
                 last_exc = exc
                 err = str(exc)
                 retryable = any(k in err for k in _RETRYABLE) or "overloaded" in err.lower()
                 if not retryable:
-                    raise
+                    raise RuntimeError(f"{model_name}: {type(exc).__name__}: {exc}") from exc
                 if attempt < 2:
                     time.sleep((attempt + 1) * 3)   # 3s, 6s
                     continue
                 break   # exhausted this model → try the next fallback
-    raise RuntimeError(f"All Gemini models exhausted. Last error: {last_exc}")
+    raise RuntimeError(f"All models exhausted. Last error: {last_exc}")
 
 
 # ── Normalization ─────────────────────────────────────────────────────────
