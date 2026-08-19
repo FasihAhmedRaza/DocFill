@@ -19,8 +19,7 @@ import pandas as pd
 import streamlit as st
 
 import history
-from extractor import (GEMINI_MODEL, blank_record, extract_with_gemini,
-                       pdf_to_images, test_api_key)
+from extractor import GEMINI_MODEL, blank_record, extract_with_gemini, pdf_to_images
 from exporter import existing_record_count, export_to_excel
 
 history.init_db()
@@ -234,7 +233,14 @@ with st.sidebar:
         )
         if st.button("Test AI connection", use_container_width=True):
             with st.spinner("Calling the API…"):
-                ok, msg = test_api_key(secret_key())
+                try:
+                    # Imported here, not at module level: Streamlit reloads the
+                    # main script but keeps imported modules cached, so a fresh
+                    # app.py can meet a stale extractor.py right after a deploy.
+                    from extractor import test_api_key
+                    ok, msg = test_api_key(secret_key())
+                except ImportError:
+                    ok, msg = False, "Server is running an older extractor.py — use Manage app ▸ Reboot app."
             if ok:
                 st.success(msg)
             else:
